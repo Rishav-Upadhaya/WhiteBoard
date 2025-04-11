@@ -33,7 +33,8 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'board',
     'channels',
-    # 'daphne',
+    'corsheaders',  # Added for cross-origin requests
+    'daphne',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
 ASGI_APPLICATION = "WhiteBoard.asgi.application"
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Added for CORS
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -59,13 +61,25 @@ ROOT_URLCONF = 'WhiteBoard.urls'
 
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [("127.0.0.1", 6379)],  # Default Redis port and localhost
-        },
-    },
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+        # Use this simpler backend instead of Redis for development
+    }
 }
 
+# If you want to use Redis later, you can switch to this configuration:
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             "hosts": [('127.0.0.1', 6379)],
+#         },
+#     },
+# }
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Example: Allow requests from a React frontend
+    "http://127.0.0.1:3000",
+]
 
 TEMPLATES = [
     {

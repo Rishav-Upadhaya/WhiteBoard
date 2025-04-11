@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Collaborative Whiteboard</title>
     <style>
-        /* Basic styling for the whiteboard canvas */
         #board {
             border: 1px solid #000;
         }
@@ -15,38 +14,34 @@
     <canvas id="board" width="800" height="600"></canvas>
     <button id="clear">Clear Board</button>
 
-
     <script>
-        // Connect to the WebSocket endpoint
         const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const wsUrl = `${wsProtocol}://${window.location.host}/ws/whiteboard/`;
+        const wsUrl = `${wsProtocol}://${window.location.host}/ws/whiteboard/{{ room_name }}/`;
         const socket = new WebSocket(wsUrl);
 
-        // Get canvas and context
         const canvas = document.getElementById('board');
         const ctx = canvas.getContext('2d');
 
-        // Variables to keep track of drawing state
         let drawing = false;
         let currentX = 0;
         let currentY = 0;
 
-        // When the socket opens, you can log it or show a message.
         socket.onopen = () => {
             console.log("Connected to the WebSocket.");
         };
 
-        // Listen for messages from the server
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            // If it is a drawing event, draw on the canvas
             if (data.event === "draw") {
                 drawLine(data.x0, data.y0, data.x, data.y, data.color, data.size);
+            } else if (data.event === "clear") {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            } else if (data.event === "cursor") {
+                // Handle cursor updates from other users here if needed
+                console.log("Cursor movement:", data.x, data.y);
             }
-            // You can handle other events like clear board here as well.
         };
 
-        // Draw a line on the canvas from (x0, y0) to (x, y)
         function drawLine(x0, y0, x, y, color, size) {
             ctx.beginPath();
             ctx.moveTo(x0, y0);
@@ -57,7 +52,6 @@
             ctx.closePath();
         }
 
-        // Mouse event handlers for drawing
         canvas.addEventListener('mousedown', (e) => {
             drawing = true;
             currentX = e.offsetX;
@@ -65,23 +59,28 @@
         });
 
         canvas.addEventListener('mousemove', (e) => {
-            if (!drawing) return;
+            if (!drawing) {
+                const message = {
+                    event: "cursor",
+                    x: e.offsetX,
+                    y: e.offsetY
+                };
+                socket.send(JSON.stringify(message));
+                return;
+            }
             const newX = e.offsetX;
             const newY = e.offsetY;
-            // Draw the line locally
             drawLine(currentX, currentY, newX, newY, '#000', 2);
-            // Send the drawing data to the server
             const message = {
                 event: "draw",
                 x0: currentX,
                 y0: currentY,
                 x: newX,
                 y: newY,
-                color: "#000",  // Here you could allow users to change color
-                size: 2         // Or change brush size
+                color: "#000",
+                size: 2
             };
             socket.send(JSON.stringify(message));
-            // Update current position
             currentX = newX;
             currentY = newY;
         });
@@ -93,55 +92,11 @@
         canvas.addEventListener('mouseout', () => {
             drawing = false;
         });
+
         document.getElementById('clear').addEventListener('click', () => {
             const message = { event: "clear" };
             socket.send(JSON.stringify(message));
         });
-
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.event === "draw") {
-                drawLine(data.x0, data.y0, data.x, data.y, data.color, data.size);
-            } else if (data.event === "clear") {
-                // Clear the entire canvas
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-            }
-        };
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (!drawing) {
-                const message = {
-                    event: "cursor",
-                    x: e.offsetX,
-                    y: e.offsetY
-                };
-                socket.send(JSON.stringify(message));
-            }
-        });
-
-        let history = [];
-
-// In your drawing function after drawing the line
-        history.push({
-            x0: currentX,
-            y0: currentY,
-            x: newX,
-            y: newY,
-            color: "#000",
-            size: 2
-        });
-
-        document.getElementById('undo').addEventListener('click', () => {
-            history.pop();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            history.forEach(action => drawLine(action.x0, action.y0, action.x, action.y, action.color, action.size));
-            // Optionally, send an update to other clients so their whiteboards match.
-        });
-        
-
-        
-        
-        
     </script>
 </body>
 </html>
